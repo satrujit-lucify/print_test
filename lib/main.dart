@@ -54,7 +54,6 @@ class _MyHomeState extends State<MyHome> {
     // Check if all necessary permissions are granted
     bool allGranted = statuses.values.every((status) => status.isGranted);
 
-    // Update state with permission result
     setState(() {
       isPermissionGranted = allGranted;
     });
@@ -111,8 +110,79 @@ class _MyHomeState extends State<MyHome> {
       debugPrint("No device connected");
       return;
     }
-    // Perform printing logic here
-    debugPrint("Printing test page...");
+
+    bool connectionStatus = await PrintBluetoothThermal.connectionStatus;
+    if (connectionStatus) {
+      List<int> ticket = await generateTestTicket();
+      final result = await PrintBluetoothThermal.writeBytes(ticket);
+      debugPrint("Print result: $result");
+    } else {
+      debugPrint("Printer not connected.");
+    }
+  }
+
+  Future<List<int>> generateTestTicket() async {
+    List<int> bytes = [];
+    final profile = await CapabilityProfile.load();
+    final generator = Generator(PaperSize.mm58, profile);
+
+    bytes += generator.setGlobalFont(PosFontType.fontA);
+    bytes += generator.reset();
+
+    bytes += generator.text(
+        'Regular: aA bB cC dD eE fF gG hH iI jJ kK lL mM nN oO pP qQ rR sS tT uU vV wW xX yY zZ',
+        styles: const PosStyles());
+    bytes += generator.text('Special 1: ñÑ àÀ èÈ éÉ üÜ çÇ ôÔ',
+        styles: const PosStyles(codeTable: 'CP1252'));
+    bytes += generator.text(
+      'Special 2: blåbærgrød',
+      styles: const PosStyles(codeTable: 'CP1252'),
+    );
+
+    bytes += generator.text('Bold text', styles: const PosStyles(bold: true));
+    bytes +=
+        generator.text('Reverse text', styles: const PosStyles(reverse: true));
+    bytes += generator.text('Underlined text',
+        styles: const PosStyles(underline: true), linesAfter: 1);
+    bytes += generator.text('Align left',
+        styles: const PosStyles(align: PosAlign.left));
+    bytes += generator.text('Align center',
+        styles: const PosStyles(align: PosAlign.center));
+    bytes += generator.text('Align right',
+        styles: const PosStyles(align: PosAlign.right), linesAfter: 1);
+
+    bytes += generator.row([
+      PosColumn(
+        text: 'col3',
+        width: 3,
+        styles: const PosStyles(align: PosAlign.center, underline: true),
+      ),
+      PosColumn(
+        text: 'col6',
+        width: 6,
+        styles: const PosStyles(align: PosAlign.center, underline: true),
+      ),
+      PosColumn(
+        text: 'col3',
+        width: 3,
+        styles: const PosStyles(align: PosAlign.center, underline: true),
+      ),
+    ]);
+
+    final List<int> barData = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 4];
+    bytes += generator.barcode(Barcode.upcA(barData));
+
+    bytes += generator.qrcode('example.com');
+    bytes += generator.text('Text size 50%',
+        styles: const PosStyles(fontType: PosFontType.fontB));
+    bytes += generator.text('Text size 100%',
+        styles: const PosStyles(fontType: PosFontType.fontA));
+    bytes += generator.text('Text size 200%',
+        styles: const PosStyles(
+            height: PosTextSize.size2, width: PosTextSize.size2));
+
+    bytes += generator.feed(2);
+    return bytes;
   }
 
   @override
@@ -153,9 +223,11 @@ class _MyHomeState extends State<MyHome> {
           children: <Widget>[
             ...devices.map(
               (device) => ListTile(
-                trailing: connectingToDevice == device.macAdress ? const CircularProgressIndicator() : connectedDevice?.macAdress == device.macAdress
-                    ? const Icon(Icons.check_circle, color: Colors.green)
-                    : null,
+                trailing: connectingToDevice == device.macAdress
+                    ? const CircularProgressIndicator()
+                    : connectedDevice?.macAdress == device.macAdress
+                        ? const Icon(Icons.check_circle, color: Colors.green)
+                        : null,
                 title: Text(device.name),
                 subtitle: Text(device.macAdress),
                 onTap: () async {
@@ -191,95 +263,4 @@ class _MyHomeState extends State<MyHome> {
       ),
     );
   }
-}
-
-Future<void> printTest() async {
-  bool conecctionStatus = await PrintBluetoothThermal.connectionStatus;
-  if (conecctionStatus) {
-    List<int> ticket = await testTicket();
-    final result = await PrintBluetoothThermal.writeBytes(ticket);
-    print("print result: $result");
-  } else {
-    //no connected
-  }
-}
-
-Future<List<int>> testTicket() async {
-  List<int> bytes = [];
-  // Using default profile
-  final profile = await CapabilityProfile.load();
-  final generator = Generator(PaperSize.mm58, profile);
-  //bytes += generator.setGlobalFont(PosFontType.fontA);
-  bytes += generator.reset();
-
-  bytes += generator.text(
-      'Regular: aA bB cC dD eE fF gG hH iI jJ kK lL mM nN oO pP qQ rR sS tT uU vV wW xX yY zZ',
-      styles: const PosStyles());
-  bytes += generator.text('Special 1: ñÑ àÀ èÈ éÉ üÜ çÇ ôÔ',
-      styles: const PosStyles(codeTable: 'CP1252'));
-  bytes += generator.text(
-    'Special 2: blåbærgrød',
-    styles: const PosStyles(codeTable: 'CP1252'),
-  );
-
-  bytes += generator.text('Bold text', styles: const PosStyles(bold: true));
-  bytes +=
-      generator.text('Reverse text', styles: const PosStyles(reverse: true));
-  bytes += generator.text('Underlined text',
-      styles: const PosStyles(underline: true), linesAfter: 1);
-  bytes += generator.text('Align left',
-      styles: const PosStyles(align: PosAlign.left));
-  bytes += generator.text('Align center',
-      styles: const PosStyles(align: PosAlign.center));
-  bytes += generator.text('Align right',
-      styles: const PosStyles(align: PosAlign.right), linesAfter: 1);
-
-  bytes += generator.row([
-    PosColumn(
-      text: 'col3',
-      width: 3,
-      styles: const PosStyles(align: PosAlign.center, underline: true),
-    ),
-    PosColumn(
-      text: 'col6',
-      width: 6,
-      styles: const PosStyles(align: PosAlign.center, underline: true),
-    ),
-    PosColumn(
-      text: 'col3',
-      width: 3,
-      styles: const PosStyles(align: PosAlign.center, underline: true),
-    ),
-  ]);
-
-  //barcode
-  final List<int> barData = [1, 2, 3, 4, 5, 6, 7, 8, 9, 0, 4];
-  bytes += generator.barcode(Barcode.upcA(barData));
-
-  //QR code
-  bytes += generator.qrcode('example.com');
-
-  bytes += generator.text(
-    'Text size 50%',
-    styles: const PosStyles(
-      fontType: PosFontType.fontB,
-    ),
-  );
-  bytes += generator.text(
-    'Text size 100%',
-    styles: const PosStyles(
-      fontType: PosFontType.fontA,
-    ),
-  );
-  bytes += generator.text(
-    'Text size 200%',
-    styles: const PosStyles(
-      height: PosTextSize.size2,
-      width: PosTextSize.size2,
-    ),
-  );
-
-  bytes += generator.feed(2);
-  //bytes += generator.cut();
-  return bytes;
 }
